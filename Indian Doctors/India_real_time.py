@@ -8,10 +8,12 @@ from selenium.webdriver.common.by import By
 from selenium.webdriver.support.wait import WebDriverWait
 import numpy as np
 from bs4 import BeautifulSoup
-import time, requests
+import time, requests, csv
 
+first = input('Please Enter First Name of Doctor:- ')
+last = input('Please Enter Last Name of Doctor:- ')
 
-doctor = input("Enter Doctor's Name:- ")
+doctor = f"{first} {last}"
 city = input("\nEnter City Name:- ")
 
 print('Please Wait for Results....')
@@ -282,14 +284,17 @@ class mg1:
             'Procedures': np.nan
         }
         self.dm[0] = d
-        for i in range(len(lm)):
-            name = lm[i].find_element_by_class_name('t-doctor-listing-profile-selected')
-            if name.text.find(doc):
-                # print(name.text.find(doc))
-                l = name.get_attribute('href')
-                d = self.me_second(l)
-                self.dm[i] = d
-                break
+        try:
+            for i in range(len(lm)):
+                name = lm[i].find_element_by_class_name('t-doctor-listing-profile-selected')
+                if name.text.find(doc):
+                    # print(name.text.find(doc))
+                    l = name.get_attribute('href')
+                    d = self.me_second(l)
+                    self.dm[i] = d
+                    break
+        except:
+            pass
         # driver.quit()
         return self.dm
 
@@ -361,7 +366,43 @@ def apollo247(doc):
     # driver.quit()
     return dm
 
+
+def fetch_details():
+    url = 'https://www.nmc.org.in/information-desk/indian-medical-register/'
+
+    driver.get(url)
+    time.sleep(2)
+
+    doc = f'{last.strip()} {first.strip()}'
+    placeholder = driver.find_element_by_id('doctorName')
+    placeholder.send_keys(doc)
+    submit = WebDriverWait(driver, 5).until(EC.element_to_be_clickable((By.ID, 'doctor_advance_Details')))
+    submit.click()
+    time.sleep(5)
+
+    table = driver.find_element_by_id('doct_info5').find_elements(By.TAG_NAME, 'tr')
+    th = [th.text for th in table[0].find_elements(By.TAG_NAME, 'th')[:6]]
+    # print(f'\n\n')
+    # csv_file = open(f'{doc}.csv', 'w', newline='')
+    # writer = csv.writer(csv_file)
+    data = []
+
+    for tr in table[1:]:
+        td = [td.text for td in tr.find_elements(By.TAG_NAME, 'td')]
+        if len(td) > 2:
+            data.append({th[index]: td[index] for index in range(len(th))})
+        else:
+            # print('Ah, No Details Found!')
+            data.append({th[index]: np.nan for index in range(len(th))})
+            break
+
+    return data
+    # csv_file.close()
+    # driver.close()
+
+
 output = {}
+nmc = None
 try:
     output['1mg'] = mg1().first_me(city, doctor)[0]
     output['Timesmed'] = timesmed(city, doctor).execute()
@@ -370,17 +411,31 @@ try:
     output['practo'] = practo(city, doctor)
     output['Doctors 360'] = doc360().info(city, doctor)
     output['Justdial'] = justdial(city, doctor).execute()
+    nmc = fetch_details()
 except Exception as e:
   print(e)
 
+def format_print(value):
+    for k, val in value.items():
+        print(f'\t{k} : {val}')
+    print('\n')
+
 for key, value in output.items():
   print(f"{key} :")
-  for k, val in value.items():
-    print(f'\t{k} : {val}')
-  print('\n')
+  format_print(value)
 
-df = pd.DataFrame(output)
-df.to_csv(f"./{doctor}_{city}.csv")
+print('NMC:')
+for val in nmc:
+    format_print(val)
+
+with pd.ExcelWriter(f'./{doctor}_{city}.xlsx', mode='w') as writer:
+    df1 = pd.DataFrame(output)
+    df2 = pd.DataFrame(nmc)
+
+    df1.to_excel(writer, sheet_name='Doctor Details')
+    df2.to_excel(writer, sheet_name='NMC', index=False)
+
+
 
 # with open(f"{doctor}_{city}.txt", 'w') as txt:
 #     txt.write(json.dumps(output))
