@@ -410,7 +410,7 @@ try:
     output['Ask Apollo'] = ask_apollo(city, doctor).get_details()
     output['practo'] = practo(city, doctor)
     output['Doctors 360'] = doc360().info(city, doctor)
-    output['Justdial'] = justdial(city, doctor).execute()
+    #output['Justdial'] = justdial(city, doctor).execute()
     nmc = fetch_details()
 except Exception as e:
   print(e)
