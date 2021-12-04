@@ -8,7 +8,7 @@ from selenium.webdriver.common.by import By
 from selenium.webdriver.support.wait import WebDriverWait
 import numpy as np
 from bs4 import BeautifulSoup
-import time, requests, csv
+import time, requests, json
 
 first = input('Please Enter First Name of Doctor:- ')
 last = input('Please Enter Last Name of Doctor:- ')
@@ -72,29 +72,38 @@ class timesmed():
         return final_data
 
     def execute(self):
-        btnClick('//*[@id="doc-trigger"]')
-        btnClick('//*[@id="Location_Label_Desktop"]')
-        sendInput('//*[@id="Location_Text_Desktop"]', self.location)
-        btnClick('//*[@id="doctor-list"]/div/div[1]/div[2]/div[2]/div[1]/ul[4]/li[1]/a')
-        time.sleep(2)
-        btnClick('//*[@id="search_text"]')
-        sendInput('//*[@id="search_text"]', self.doc_name)
+        try:
+            btnClick('//*[@id="doc-trigger"]')
+            btnClick('//*[@id="Location_Label_Desktop"]')
+            sendInput('//*[@id="Location_Text_Desktop"]', self.location)
+            btnClick('//*[@id="doctor-list"]/div/div[1]/div[2]/div[2]/div[1]/ul[4]/li[1]/a')
+            time.sleep(2)
+            btnClick('//*[@id="search_text"]')
+            sendInput('//*[@id="search_text"]', self.doc_name)
 
-        time.sleep(3)
-        names = driver.find_element_by_xpath('//*[@id="doctor-list"]/div/div[1]/div[2]/div[2]/div[1]/ul[1]')
-        index=0
+            time.sleep(3)
+            names = driver.find_element_by_xpath('//*[@id="doctor-list"]/div/div[1]/div[2]/div[2]/div[1]/ul[1]')
+            # print(f'\n\n\n\n{names.text}')
+            index = 0
 
-        for name in names.find_elements_by_tag_name('li'):
-            doctor = name.text.replace('-', ' ').replace('HOSPITALS\n','').replace('DOCTORS\n','').strip()
-            if (doctor.find(self.doc_name.upper())!=-1) or (self.doc_name.upper().find(doctor)!=-1):
-                class_name = name.get_attribute('class')
-                btnClick(f'//*[@id="doctor-list"]/div/div[1]/div[2]/div[2]/div[1]/ul[1]/li[{index + 1}]/a')
-                time.sleep(3)
-                if class_name == 'h ui-menu-item':
-                    btnClick(f'//*[@id="Hospital_Doctor_List"]/ul/li/div/div[1]/div[1]/div[2]/h2/a')
+            for name in names.find_elements_by_tag_name('li'):
+                doctor = name.text.replace('-', ' ').replace('HOSPITALS\n', '').replace('DOCTORS\n', '').strip()
+                if (doctor.find(self.doc_name.upper()) != -1) or (self.doc_name.upper().find(doctor) != -1):
+                    class_name = name.get_attribute('class')
+                    btnClick(f'//*[@id="doctor-list"]/div/div[1]/div[2]/div[2]/div[1]/ul[1]/li[{index + 1}]/a')
                     time.sleep(3)
-                return self.get_doctor_data()
-            index+=1
+                    if class_name == 'h ui-menu-item':
+                        btnClick(f'//*[@id="Hospital_Doctor_List"]/ul/li/div/div[1]/div[1]/div[2]/h2/a')
+                        time.sleep(3)
+                    break
+                index += 1
+
+            return self.get_doctor_data()
+        except:
+            return {
+                'Ratings': np.nan, 'Conditions Treated': np.nan, 'Procedures': np.nan,
+                'Doctor Name': self.doc_name, 'Speciality': np.nan, 'Education': np.nan
+            }
 
 class justdial:
     def __init__(self, city, doctor):
@@ -176,7 +185,6 @@ class doc360():
             'Speciality': specialist,
             'Address': Address,
             'Clinic': Details,
-            # 'Other Details': Details_1,
             'Procedure': lst,
             'Conditions Treated': lst1
         }
@@ -194,10 +202,15 @@ class doc360():
 
         sendInput('//*[@id="react-select-value_select-input"]', doc)
         time.sleep(3)
-        doc_profile_url = driver.find_element(By.XPATH, '//*[@id="react-select-value_select-option-0"]/a').get_attribute('href')
-        # print('\n\n',doc_profile_url)
-        he = self.second(doc_profile_url)
-        return he
+        doc_profile_url = driver.find_element(By.XPATH, '//*[@id="react-select-value_select-option-0"]/a')
+
+        if doc_profile_url.text == doc:
+            return self.second(doc_profile_url.get_attribute('href'))
+        else:
+            return {
+                'Doctor Name': doc, 'Ratings': np.nan, 'Speciality': np.nan, 'Address': np.nan,
+                'Clinic': np.nan, 'Procedure': np.nan, 'Conditions Treated': np.nan
+            }
 
 class ask_apollo():
 
@@ -237,30 +250,36 @@ class ask_apollo():
 
         return data
 
-def practo(area, ipname):
-    ipname2 = ipname.replace(" ","-")
-    area = area.lower()
-    source = requests.get(f'https://www.practo.com/{area}/doctor/{ipname2}').text
-    soup = BeautifulSoup(source, 'lxml')
-    name = soup.find('h1', class_='c-profile__title u-bold u-d-inlineblock')
-    if name is not None:
-        specialist = soup.find('div', class_="u-d-inline-flex flex-ai-center").text
-        education = soup.find('p', {'data-qa-id': "doctor-qualifications"}).text
-        # procedure = [h2.text for h2 in soup.find_all('h2', class_="u-d-inlineblock u-spacer--right-v-thin c-profile__details")]
+def practo(city, first, last):
+    # getting link for the doctor
 
-        rating = soup.find('span', class_="common__star-rating__value").text
-        location = soup.find('h4', class_="c-profile--clinic__location" ).text
+    link = None
+    req = requests.get(
+        f'https://www.practo.com/client-api/v1/cerebro/v3/autocomplete?query={first}%20{last}&exclude=%5B%22locality%22%2C%20%22region%22%2C%20%22insurance_providers%22%5D&contexts=%7B%22city%22%3A%20%22{city}%22%7D')
+    result = json.loads(req.content)
+    grouped = result['results']['grouped']
+    for item in grouped:
+        if item['display_name'].lower() == 'doctors':
+            index = grouped.index(item)
+            for match in grouped[index]['matches']:
+                link = f"https://www.practo.com/{city.lower()}/doctor/{match['slug']}"
+                break
 
-        return {
-            'Ratings': rating, 'Conditions Treated': np.nan, 'Procedures': specialist,
-            'Doctor Name': name.text, 'Speciality': specialist, 'Education': education
-        }
-    else:
-        return {
-            'Ratings': np.nan, 'Conditions Treated': np.nan, 'Procedures': np.nan,
-            'Doctor Name': ipname, 'Speciality': np.nan, 'Education': np.nan
-        }
+    # scraping the link
 
+    data = {
+        'Doctor Name': f'{first} {last}', 'Ratings': np.nan, 'Conditions Treated': np.nan,
+        'Procedures': np.nan, 'Speciality': np.nan, 'Education': np.nan
+    }
+    if link:
+        source = requests.get(link).text
+        soup = BeautifulSoup(source, 'lxml')
+        name = soup.find('h1', class_='c-profile__title u-bold u-d-inlineblock')
+        if name is not None:
+            data['Speciality'] = soup.find('div', class_="u-d-inline-flex flex-ai-center").text
+            data['Education'] = soup.find('p', {'data-qa-id': "doctor-qualifications"}).text
+            data['Ratings'] = soup.find('span', class_="common__star-rating__value").text
+    return data
 
 class mg1:
     dm = {}
@@ -304,7 +323,6 @@ class mg1:
         soup = BeautifulSoup(source.text, 'html.parser')
         name = soup.find_all('div', class_='DoctorName__name___2fjjE')[1].text
         # print(name)
-        rating = soup.find_all('div', class_='hide-on-med-and-down')[1].find_all('div')[1].find('span').text.strip()
         # print(rating)
         speciality = soup.find_all('div', class_='hide-on-med-and-down')[2].find('div').find_all('div')[1].find('div').text.strip()
         # print(speciality)
@@ -313,6 +331,10 @@ class mg1:
         education = ''
         for ed in eds:
             education = education + ed.text + ' '
+        try:
+            rating = soup.find_all('div', class_='hide-on-med-and-down')[1].find_all('div')[1].find('span').text.strip()
+        except IndexError:
+            rating = np.nan
         # print(education)
         d= {
             'Doctor Name': name,
@@ -405,13 +427,13 @@ output = {}
 nmc = None
 try:
     output['1mg'] = mg1().first_me(city, doctor)[0]
-    output['Timesmed'] = timesmed(city, doctor).execute()
     output['apollo247'] = apollo247(doctor)[0]
-    output['Ask Apollo'] = ask_apollo(city, doctor).get_details()
-    output['practo'] = practo(city, doctor)
+    # output['Ask Apollo'] = ask_apollo(city, doctor).get_details()
+    output['practo'] = practo(city, first, last)
     output['Doctors 360'] = doc360().info(city, doctor)
-    #output['Justdial'] = justdial(city, doctor).execute()
+    # output['Justdial'] = justdial(city, doctor).execute()
     nmc = fetch_details()
+    output['Timesmed'] = timesmed(city, doctor).execute()
 except Exception as e:
   print(e)
 
