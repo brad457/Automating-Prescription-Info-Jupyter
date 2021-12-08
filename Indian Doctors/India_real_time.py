@@ -436,16 +436,13 @@ try:
     output['Timesmed'] = timesmed(city, doctor).execute()
 except Exception as e:
   print(e)
-
 def format_print(value):
     for k, val in value.items():
         print(f'\t{k} : {val}')
     print('\n')
-
 for key, value in output.items():
   print(f"{key} :")
   format_print(value)
-
 print('NMC:')
 for val in nmc:
     format_print(val)
@@ -456,9 +453,4 @@ with pd.ExcelWriter(f'./{doctor}_{city}.xlsx', mode='w') as writer:
 
     df1.to_excel(writer, sheet_name='Doctor Details')
     df2.to_excel(writer, sheet_name='NMC', index=False)
-
-
-
-# with open(f"{doctor}_{city}.txt", 'w') as txt:
-#     txt.write(json.dumps(output))
 driver.quit()
