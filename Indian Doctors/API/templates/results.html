@@ -1,0 +1,24 @@
+{% extends 'base.html' %}
+{% block content %}
+<head>  
+</head>
+<main>
+  <h1>Results</h1>
+  {% if accounts%}
+
+  {% for value in accounts %}
+  {% for x, y in value.items %}
+        <h1>FINDINGS  </h1>
+        <h2>{{x}}:{{y}}</h2>
+        {% endfor %}
+  {% endfor %}
+  {% endif %}    
+
+  
+  <section id="section"><h2></h2></section>
+    
+</main>
+
+
+
+{% endblock %}
