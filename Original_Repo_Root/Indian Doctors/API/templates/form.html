@@ -1,0 +1,24 @@
+
+{% extends 'base.html' %}
+{% block content %}
+<head>  
+</head>
+<main>
+  <h1>Search yourself a Doctor</h1>
+  <form id="post-form" method="post">
+    {% csrf_token %}
+  <input type="text" name="First_name" id="First_name" placeholder="First_name">
+  <input type="text" name="Last_Name" id="Last_Name" placeholder="Last_Name">
+  <input type="text" name="City" id="City" placeholder="City">
+  <div class="buttons">
+    <button type="submit" id="shorten">Search</button>
+  </div>
+  </form>
+  
+  <section id="section"><h2></h2></section>
+    
+</main>
+
+
+
+{% endblock %}
